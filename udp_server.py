@@ -25,6 +25,8 @@ class CommandsUDPHandler(SocketServer.BaseRequestHandler):
             self.next_slide()
         elif data == "prev":
             self.prev_slide()
+        elif data.startswith("play"):
+            self.play_video(data.split()[1])
 
         # just send back the same data, but upper-cased
         socket.sendto(data.upper(), self.client_address)
@@ -41,10 +43,13 @@ class CommandsUDPHandler(SocketServer.BaseRequestHandler):
     def prev_slide(self):
         call(["osascript","apple_scripts/prev_slide.scpt"])
 
+    def play_video(self, video):
+        call(["osascript","apple_scripts/play_video_{0}.scpt".format(video)])
+
 
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 5555
+    HOST, PORT = "10.100.10.194", 5555
 
     # Create the server, binding to localhost on port 9999
     server = SocketServer.UDPServer((HOST, PORT), CommandsUDPHandler)

@@ -2,13 +2,13 @@ import socket
 import sys
 import time
 
-HOST, PORT = "localhost", 5555
+HOST, PORT = "10.100.10.194", 5555
 data = " ".join(sys.argv[1:])
 
-# Create a socket (SOCK_STREAM means a TCP socket)
+# Create a socket (SOCK_STREAM means a UDP socket)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-cmd_list = ["start", "next", "next", "prev", "stop"]
+cmd_list = ["start", "next", "play test"]
 
 try:
 	while len(cmd_list) != 0:
