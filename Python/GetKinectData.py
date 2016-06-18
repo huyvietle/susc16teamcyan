@@ -18,6 +18,9 @@ import thread
 import itertools
 import ctypes
 
+import numpy as np
+import time
+
 import pykinect
 from pykinect import nui
 from pykinect.nui import JointId
@@ -26,11 +29,13 @@ import pygame
 from pygame.color import THECOLORS
 from pygame.locals import *
 
+isRecording = False
 KINECTEVENT = pygame.USEREVENT
 DEPTH_WINSIZE = 320,240
 VIDEO_WINSIZE = 640,480
 pygame.init()
 LIMB_LIST = {}
+RECORD_LIST = []
 class Limb:
 	def __init__(self, name, x, y):
 		self.name = name
@@ -82,6 +87,58 @@ SPINE = (JointId.HipCenter,
 
 skeleton_to_depth_image = nui.SkeletonEngine.skeleton_to_depth_image
 
+def perform_machine_learning():
+	return None
+
+def store_pos_data(skeletons):
+    for index, data in enumerate(skeletons):
+        # draw the Head
+        HeadPos = skeleton_to_depth_image(data.SkeletonPositions[JointId.Head], dispInfo.current_w, dispInfo.current_h)
+        draw_skeleton_data(data, index, SPINE, 10)
+        pygame.draw.circle(screen, SKELETON_COLORS[index], (int(HeadPos[0]), int(HeadPos[1])), 20, 0)
+
+        # SUSC16: It has frames in which the head is not tracked. Hence, better check if it is not 0,0!!
+        LIMB_LIST[JointId.Head] = Limb(JointId.Head, int(HeadPos[0]), int(HeadPos[1]))
+
+        for positions in {LEFT_ARM, RIGHT_ARM, LEFT_LEG, RIGHT_LEG}:
+            start = data.SkeletonPositions[positions[0]]
+
+            for position in itertools.islice(positions, 1, None):
+                next = data.SkeletonPositions[position.value]
+
+                curstart = skeleton_to_depth_image(start, dispInfo.current_w, dispInfo.current_h)
+                curend = skeleton_to_depth_image(next, dispInfo.current_w, dispInfo.current_h)
+
+                # SUSC16: Get the position of all limbs and store them to the globally
+                # available LIMB_LIST.
+                if (curstart[0] != 0.0 and curstart[1] != 0.0):
+                    LIMB_LIST[position.value] = Limb(position.value,curstart[0], curstart[1])
+                start = next
+
+    if (isRecording):
+        data = []
+        # right side
+        data.append(LIMB_LIST[JointId.HandRight].getX() - LIMB_LIST[JointId.Head].getX())
+        data.append(LIMB_LIST[JointId.HandRight].getY() - LIMB_LIST[JointId.Head].getY())
+        data.append(LIMB_LIST[JointId.ElbowRight].getX() - LIMB_LIST[JointId.Head].getX())
+        data.append(LIMB_LIST[JointId.ElbowRight].getY() - LIMB_LIST[JointId.Head].getY())
+        data.append(LIMB_LIST[JointId.ShoulderRight].getX() - LIMB_LIST[JointId.Head].getX())
+        data.append(LIMB_LIST[JointId.ShoulderRight].getY() - LIMB_LIST[JointId.Head].getY())
+
+        # Left side
+        data.append(LIMB_LIST[JointId.HandLeft].getX() - LIMB_LIST[JointId.Head].getX())
+        data.append(LIMB_LIST[JointId.HandLeft].getY() - LIMB_LIST[JointId.Head].getY())
+        data.append(LIMB_LIST[JointId.ElbowLeft].getX() - LIMB_LIST[JointId.Head].getX())
+        data.append(LIMB_LIST[JointId.ElbowLeft].getY() - LIMB_LIST[JointId.Head].getY())
+        data.append(LIMB_LIST[JointId.ShoulderLeft].getX() - LIMB_LIST[JointId.Head].getX())
+        data.append(LIMB_LIST[JointId.ShoulderLeft].getY() - LIMB_LIST[JointId.Head].getY())
+
+        RECORD_LIST.append(np.array(data))
+        time.sleep(0.2)
+
+		#if (JointId.HandLeft in LIMB_LIST):
+			#print LIMB_LIST[JointId.HandRight].getX(), LIMB_LIST[JointId.HandRight].getY()
+
 def draw_skeleton_data(pSkelton, index, positions, width = 4):
     start = pSkelton.SkeletonPositions[positions[0]]
 
@@ -90,13 +147,10 @@ def draw_skeleton_data(pSkelton, index, positions, width = 4):
 
         curstart = skeleton_to_depth_image(start, dispInfo.current_w, dispInfo.current_h)
         curend = skeleton_to_depth_image(next, dispInfo.current_w, dispInfo.current_h)
-        # SUSC16: Get start and end of a limb as well as which limb it is (position).
-        LIMB_LIST[position] = Limb("?", curstart, curend)
 
-		# THIS IS THE LEFT ELBOW!!!
-        if (position.value == 7):
-            print curstart
-			#print position.value, position# curstart # LIMB_LIST[position].getX()
+		# SUSC16: Get the position of all limbs and store them to the globally
+		# available LIMB_LIST.
+        LIMB_LIST[position.value] = Limb(position.value,curstart[0], curstart[1])
         pygame.draw.line(screen, SKELETON_COLORS[index], curstart, curend, width)
 
         start = next
@@ -133,7 +187,7 @@ def draw_skeletons(skeletons):
         pygame.draw.circle(screen, SKELETON_COLORS[index], (int(HeadPos[0]), int(HeadPos[1])), 20, 0)
 
         # SUSC16: It has frames in which the head is not tracked. Hence, better check if it is not 0,0!!
-        LIMB_LIST["Head"] = Limb("Head", int(HeadPos[0]), int(HeadPos[1]))
+        LIMB_LIST[JointId.Head] = Limb(JointId.Head, int(HeadPos[0]), int(HeadPos[1]))
 
         # drawing the limbs
         draw_skeleton_data(data, index, LEFT_ARM)
@@ -146,6 +200,14 @@ def draw_skeletons(skeletons):
 def depth_frame_ready(frame):
     if video_display:
         return
+
+    #sta = surface_to_array(screen)
+    #frame.image.copy_bits(sta)
+    #img = pygame.image.fromstring(sta.object.raw, (640, 480), 'Greyscale', True)
+    #pygame.image.save(img, "myFile.bmp")
+    #print dir(sta.object.raw)
+    #print type(sta.object.raw)
+    #print "______________\n"
 
     with screen_lock:
         address = surface_to_array(screen)
@@ -217,7 +279,8 @@ if __name__ == '__main__':
         elif e.type == KINECTEVENT:
             skeletons = e.skeletons
             if draw_skeleton:
-                draw_skeletons(skeletons)
+                #draw_skeletons(skeletons)
+                store_pos_data(skeletons)
                 pygame.display.update()
         elif e.type == KEYDOWN:
             if e.key == K_ESCAPE:
@@ -241,3 +304,10 @@ if __name__ == '__main__':
                 kinect.camera.elevation_angle = 2
             elif e.key == K_q:
                 exit(0)
+            elif e.key == K_w:
+                isRecording = not isRecording
+                if (not isRecording):
+                    np.savez("data_test_1", np.array(RECORD_LIST))
+                    print "File Saved..."
+
+
