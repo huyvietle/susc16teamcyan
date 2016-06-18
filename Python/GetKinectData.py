@@ -85,12 +85,14 @@ SPINE = (JointId.HipCenter,
          JointId.ShoulderCenter,
          JointId.Head)
 
+lastImage = time.time()
 skeleton_to_depth_image = nui.SkeletonEngine.skeleton_to_depth_image
 
 def perform_machine_learning():
 	return None
 
 def store_pos_data(skeletons):
+    global lastImage
     for index, data in enumerate(skeletons):
         # draw the Head
         HeadPos = skeleton_to_depth_image(data.SkeletonPositions[JointId.Head], dispInfo.current_w, dispInfo.current_h)
@@ -118,24 +120,24 @@ def store_pos_data(skeletons):
     if (isRecording):
         data = []
         # right side
-        data.append(LIMB_LIST[JointId.HandRight].getX() - LIMB_LIST[JointId.Head].getX())
-        data.append(LIMB_LIST[JointId.HandRight].getY() - LIMB_LIST[JointId.Head].getY())
-        data.append(LIMB_LIST[JointId.ElbowRight].getX() - LIMB_LIST[JointId.Head].getX())
-        data.append(LIMB_LIST[JointId.ElbowRight].getY() - LIMB_LIST[JointId.Head].getY())
-        data.append(LIMB_LIST[JointId.ShoulderRight].getX() - LIMB_LIST[JointId.Head].getX())
-        data.append(LIMB_LIST[JointId.ShoulderRight].getY() - LIMB_LIST[JointId.Head].getY())
+        if ((time.time()*1000) - lastImage > 200):
+            data.append(LIMB_LIST[JointId.HandRight].getX() - LIMB_LIST[JointId.Head].getX())
+            data.append(LIMB_LIST[JointId.HandRight].getY() - LIMB_LIST[JointId.Head].getY())
+            data.append(LIMB_LIST[JointId.ElbowRight].getX() - LIMB_LIST[JointId.Head].getX())
+            data.append(LIMB_LIST[JointId.ElbowRight].getY() - LIMB_LIST[JointId.Head].getY())
+            data.append(LIMB_LIST[JointId.ShoulderRight].getX() - LIMB_LIST[JointId.Head].getX())
+            data.append(LIMB_LIST[JointId.ShoulderRight].getY() - LIMB_LIST[JointId.Head].getY())
 
-        # Left side
-        data.append(LIMB_LIST[JointId.HandLeft].getX() - LIMB_LIST[JointId.Head].getX())
-        data.append(LIMB_LIST[JointId.HandLeft].getY() - LIMB_LIST[JointId.Head].getY())
-        data.append(LIMB_LIST[JointId.ElbowLeft].getX() - LIMB_LIST[JointId.Head].getX())
-        data.append(LIMB_LIST[JointId.ElbowLeft].getY() - LIMB_LIST[JointId.Head].getY())
-        data.append(LIMB_LIST[JointId.ShoulderLeft].getX() - LIMB_LIST[JointId.Head].getX())
-        data.append(LIMB_LIST[JointId.ShoulderLeft].getY() - LIMB_LIST[JointId.Head].getY())
+            # Left side
+            data.append(LIMB_LIST[JointId.HandLeft].getX() - LIMB_LIST[JointId.Head].getX())
+            data.append(LIMB_LIST[JointId.HandLeft].getY() - LIMB_LIST[JointId.Head].getY())
+            data.append(LIMB_LIST[JointId.ElbowLeft].getX() - LIMB_LIST[JointId.Head].getX())
+            data.append(LIMB_LIST[JointId.ElbowLeft].getY() - LIMB_LIST[JointId.Head].getY())
+            data.append(LIMB_LIST[JointId.ShoulderLeft].getX() - LIMB_LIST[JointId.Head].getX())
+            data.append(LIMB_LIST[JointId.ShoulderLeft].getY() - LIMB_LIST[JointId.Head].getY())
 
-        RECORD_LIST.append(np.array(data))
-        time.sleep(0.2)
-
+            RECORD_LIST.append(np.array(data))
+            lastImage = time.time() * 1000        
 		#if (JointId.HandLeft in LIMB_LIST):
 			#print LIMB_LIST[JointId.HandRight].getX(), LIMB_LIST[JointId.HandRight].getY()
 
@@ -203,7 +205,7 @@ def depth_frame_ready(frame):
 
     #sta = surface_to_array(screen)
     #frame.image.copy_bits(sta)
-    #img = pygame.image.fromstring(sta.object.raw, (640, 480), 'Greyscale', True)
+    #img = pygame.image.fromstring(sta.object.raw, (640, 480), 'P', True)
     #pygame.image.save(img, "myFile.bmp")
     #print dir(sta.object.raw)
     #print type(sta.object.raw)
@@ -306,8 +308,12 @@ if __name__ == '__main__':
                 exit(0)
             elif e.key == K_w:
                 isRecording = not isRecording
-                if (not isRecording):
-                    np.savez("data_test_1", np.array(RECORD_LIST))
+                
+                if (isRecording):
+                    print "Started recording"
+                else:
+                    print "Saving file.."
+                    np.savez("change_state", np.array(RECORD_LIST))
                     print "File Saved..."
 
 
