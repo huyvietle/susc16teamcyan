@@ -1,16 +1,16 @@
 # PyKinect
 # Copyright(c) Microsoft Corporation
 # All rights reserved.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the License); you may not use
 # this file except in compliance with the License. You may obtain a copy of the
 # License at http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # THIS CODE IS PROVIDED ON AN  *AS IS* BASIS, WITHOUT WARRANTIES OR CONDITIONS
 # OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION ANY
 # IMPLIED WARRANTIES OR CONDITIONS OF TITLE, FITNESS FOR A PARTICULAR PURPOSE,
 # MERCHANTABLITY OR NON-INFRINGEMENT.
-# 
+#
 # See the Apache Version 2.0 License for specific language governing
 # permissions and limitations under the License.
 
@@ -30,76 +30,75 @@ KINECTEVENT = pygame.USEREVENT
 DEPTH_WINSIZE = 320,240
 VIDEO_WINSIZE = 640,480
 pygame.init()
-
 LIMB_LIST = {}
-class Limb: 
-	def __init__(self, name, position, x, y):
+class Limb:
+	def __init__(self, name, x, y):
 		self.name = name
 		self.x = x
 		self.y = y
-		self.position = position
 
 	def getName(self):
-		return this.name
-
-	def getPosition(self):
-		return this.position
+		return self.name
 
 	def getX(self):
-		return this.x
-	
+		return self.x
+
 	def getY(self):
-		return this.y
+		return self.y
 
 
-SKELETON_COLORS = [THECOLORS["red"], 
-                   THECOLORS["blue"], 
-                   THECOLORS["green"], 
-                   THECOLORS["orange"], 
-                   THECOLORS["purple"], 
-                   THECOLORS["yellow"], 
+SKELETON_COLORS = [THECOLORS["red"],
+                   THECOLORS["blue"],
+                   THECOLORS["green"],
+                   THECOLORS["orange"],
+                   THECOLORS["purple"],
+                   THECOLORS["yellow"],
                    THECOLORS["violet"]]
 
-LEFT_ARM = (JointId.ShoulderCenter, 
-            JointId.ShoulderLeft, 
-            JointId.ElbowLeft, 
-            JointId.WristLeft, 
+LEFT_ARM = (JointId.ShoulderCenter,
+            JointId.ShoulderLeft,
+            JointId.ElbowLeft,
+            JointId.WristLeft,
             JointId.HandLeft)
-RIGHT_ARM = (JointId.ShoulderCenter, 
-             JointId.ShoulderRight, 
-             JointId.ElbowRight, 
-             JointId.WristRight, 
+RIGHT_ARM = (JointId.ShoulderCenter,
+             JointId.ShoulderRight,
+             JointId.ElbowRight,
+             JointId.WristRight,
              JointId.HandRight)
-LEFT_LEG = (JointId.HipCenter, 
-            JointId.HipLeft, 
-            JointId.KneeLeft, 
-            JointId.AnkleLeft, 
+LEFT_LEG = (JointId.HipCenter,
+            JointId.HipLeft,
+            JointId.KneeLeft,
+            JointId.AnkleLeft,
             JointId.FootLeft)
-RIGHT_LEG = (JointId.HipCenter, 
-             JointId.HipRight, 
-             JointId.KneeRight, 
-             JointId.AnkleRight, 
+RIGHT_LEG = (JointId.HipCenter,
+             JointId.HipRight,
+             JointId.KneeRight,
+             JointId.AnkleRight,
              JointId.FootRight)
-SPINE = (JointId.HipCenter, 
-         JointId.Spine, 
-         JointId.ShoulderCenter, 
+SPINE = (JointId.HipCenter,
+         JointId.Spine,
+         JointId.ShoulderCenter,
          JointId.Head)
 
 skeleton_to_depth_image = nui.SkeletonEngine.skeleton_to_depth_image
 
 def draw_skeleton_data(pSkelton, index, positions, width = 4):
     start = pSkelton.SkeletonPositions[positions[0]]
-       
+
     for position in itertools.islice(positions, 1, None):
         next = pSkelton.SkeletonPositions[position.value]
-        
-        curstart = skeleton_to_depth_image(start, dispInfo.current_w, dispInfo.current_h) 
-        curend = skeleton_to_depth_image(next, dispInfo.current_w, dispInfo.current_h)
-        # SUSC16: Get start and end of a limb as well as which limb it is (position). 
-        LIMB_LIST.append(new Limb("?", position, curstart, curend))
 
+        curstart = skeleton_to_depth_image(start, dispInfo.current_w, dispInfo.current_h)
+        curend = skeleton_to_depth_image(next, dispInfo.current_w, dispInfo.current_h)
+        # SUSC16: Get start and end of a limb as well as which limb it is (position).
+        LIMB_LIST[position] = Limb("?", curstart, curend)
+
+		# THIS IS THE LEFT ELBOW!!!
+        if (position.value == 7):
+            print curstart
+			#print position.value, position# curstart # LIMB_LIST[position].getX()
         pygame.draw.line(screen, SKELETON_COLORS[index], curstart, curend, width)
-        
+
         start = next
 
 # recipe to get address of surface: http://archives.seul.org/pygame/users/Apr-2008/msg00218.html
@@ -129,18 +128,19 @@ def surface_to_array(surface):
 def draw_skeletons(skeletons):
     for index, data in enumerate(skeletons):
         # draw the Head
-        HeadPos = skeleton_to_depth_image(data.SkeletonPositions[JointId.Head], dispInfo.current_w, dispInfo.current_h) 
+        HeadPos = skeleton_to_depth_image(data.SkeletonPositions[JointId.Head], dispInfo.current_w, dispInfo.current_h)
         draw_skeleton_data(data, index, SPINE, 10)
         pygame.draw.circle(screen, SKELETON_COLORS[index], (int(HeadPos[0]), int(HeadPos[1])), 20, 0)
-        
+
         # SUSC16: It has frames in which the head is not tracked. Hence, better check if it is not 0,0!!
-        # print "HEAD: ", int(HeadPos[0]), int(HeadPos[1])
+        LIMB_LIST["Head"] = Limb("Head", int(HeadPos[0]), int(HeadPos[1]))
 
         # drawing the limbs
         draw_skeleton_data(data, index, LEFT_ARM)
         draw_skeleton_data(data, index, RIGHT_ARM)
         draw_skeleton_data(data, index, LEFT_LEG)
         draw_skeleton_data(data, index, RIGHT_LEG)
+
 
 
 def depth_frame_ready(frame):
@@ -152,9 +152,9 @@ def depth_frame_ready(frame):
         frame.image.copy_bits(address)
         del address
         if skeletons is not None and draw_skeleton:
-            print skeletons
+            #print skeletons
             draw_skeletons(skeletons)
-        pygame.display.update()    
+        pygame.display.update()
 
 
 def video_frame_ready(frame):
@@ -176,7 +176,7 @@ if __name__ == '__main__':
 
     screen_lock = thread.allocate()
 
-    screen = pygame.display.set_mode(DEPTH_WINSIZE,0,16)    
+    screen = pygame.display.set_mode(DEPTH_WINSIZE,0,16)
     pygame.display.set_caption('Python Kinect Demo')
     skeletons = None
     screen.fill(THECOLORS["black"])
@@ -191,10 +191,10 @@ if __name__ == '__main__':
             pass
 
     kinect.skeleton_frame_ready += post_frame
-    
-    kinect.depth_frame_ready += depth_frame_ready    
-    kinect.video_frame_ready += video_frame_ready    
-    
+
+    kinect.depth_frame_ready += depth_frame_ready
+    kinect.video_frame_ready += video_frame_ready
+
     kinect.video_stream.open(nui.ImageStreamType.Video, 2, nui.ImageResolution.Resolution640x480, nui.ImageType.Color)
     kinect.depth_stream.open(nui.ImageStreamType.Depth, 2, nui.ImageResolution.Resolution320x240, nui.ImageType.Depth)
 
@@ -229,7 +229,7 @@ if __name__ == '__main__':
                     video_display = False
             elif e.key == K_v:
                 with screen_lock:
-                    screen = pygame.display.set_mode(VIDEO_WINSIZE,0,32)    
+                    screen = pygame.display.set_mode(VIDEO_WINSIZE,0,32)
                     video_display = True
             elif e.key == K_s:
                 draw_skeleton = not draw_skeleton
@@ -239,3 +239,5 @@ if __name__ == '__main__':
                 kinect.camera.elevation_angle = kinect.camera.elevation_angle - 2
             elif e.key == K_x:
                 kinect.camera.elevation_angle = 2
+            elif e.key == K_q:
+                exit(0)
