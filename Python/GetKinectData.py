@@ -31,6 +31,27 @@ DEPTH_WINSIZE = 320,240
 VIDEO_WINSIZE = 640,480
 pygame.init()
 
+LIMB_LIST = {}
+class Limb: 
+	def __init__(self, name, position, x, y):
+		self.name = name
+		self.x = x
+		self.y = y
+		self.position = position
+
+	def getName(self):
+		return this.name
+
+	def getPosition(self):
+		return this.position
+
+	def getX(self):
+		return this.x
+	
+	def getY(self):
+		return this.y
+
+
 SKELETON_COLORS = [THECOLORS["red"], 
                    THECOLORS["blue"], 
                    THECOLORS["green"], 
@@ -74,7 +95,8 @@ def draw_skeleton_data(pSkelton, index, positions, width = 4):
         
         curstart = skeleton_to_depth_image(start, dispInfo.current_w, dispInfo.current_h) 
         curend = skeleton_to_depth_image(next, dispInfo.current_w, dispInfo.current_h)
-        print "start, end", curstart, curend
+        # SUSC16: Get start and end of a limb as well as which limb it is (position). 
+        LIMB_LIST.append(new Limb("?", position, curstart, curend))
 
         pygame.draw.line(screen, SKELETON_COLORS[index], curstart, curend, width)
         
@@ -119,8 +141,6 @@ def draw_skeletons(skeletons):
         draw_skeleton_data(data, index, RIGHT_ARM)
         draw_skeleton_data(data, index, LEFT_LEG)
         draw_skeleton_data(data, index, RIGHT_LEG)
-
-        print "ARMS: ", type(data)
 
 
 def depth_frame_ready(frame):
