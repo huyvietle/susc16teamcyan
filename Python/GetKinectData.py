@@ -29,6 +29,27 @@ import pygame
 from pygame.color import THECOLORS
 from pygame.locals import *
 
+import sklearn.datasets, sklearn.linear_model, sklearn.neighbors
+import matplotlib.pyplot as plt
+#import seaborn as sns
+import sys, os, time
+import scipy.io.wavfile, scipy.signal
+# %matplotlib inline
+import matplotlib as mpl
+from IPython.core.display import HTML
+mpl.rcParams['figure.figsize'] = (18.0, 10.0)
+import pandas as pd
+
+import socket
+import sys
+import time
+
+HOST, PORT = "10.100.10.194", 5555
+data = " ".join(sys.argv[1:])
+
+# Create a socket (SOCK_STREAM means a UDP socket)
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
 isRecording = False
 KINECTEVENT = pygame.USEREVENT
 DEPTH_WINSIZE = 320,240
@@ -88,11 +109,41 @@ SPINE = (JointId.HipCenter,
 lastImage = time.time()
 skeleton_to_depth_image = nui.SkeletonEngine.skeleton_to_depth_image
 
+########### MACHINE LEARNING STUFF
+next_training = np.concatenate((np.load("./data/next_slide_right.npz")['arr_0'], np.load("./data/next_slide_left.npz")['arr_0']))
+# print next_training.shape[0]
+
+prev_training = np.concatenate((np.load("./data/prev_slide_right.npz")['arr_0'], np.load("./data/prev_slide_left.npz")['arr_0']))
+# print prev_training.shape[0]
+
+video_on = np.load("./data/video_on.npz")['arr_0']
+# print video_on.shape[0]
+
+change_state = np.load("./data/change_state.npz")['arr_0']
+# print change_state.shape[0]
+
+start_presenter = np.load("./data/whatever1.npz")['arr_0']
+# print start_presenter.shape[0]
+
+gestures_classes = { 0: "next slide", 1: "prev slide", 2:"play video", 3:"change_state", 4:"start pres" }
+
+current_gesture = None
+
+train_features = np.concatenate((next_training, prev_training, video_on, change_state, start_presenter))
+train_labels = np.concatenate((np.ones(next_training.shape[0])*0,
+                               np.ones(prev_training.shape[0])*1,
+                               np.ones(video_on.shape[0])*2,
+                               np.ones(change_state.shape[0])*3,
+                               np.ones(start_presenter.shape[0])*4))
+
+knn = sklearn.neighbors.KNeighborsClassifier(n_neighbors=5)
+knn.fit(train_features, train_labels)
+
 def perform_machine_learning():
 	return None
 
 def store_pos_data(skeletons):
-    global lastImage
+    global lastImage, gestures_classes, current_gesture
     for index, data in enumerate(skeletons):
         # draw the Head
         HeadPos = skeleton_to_depth_image(data.SkeletonPositions[JointId.Head], dispInfo.current_w, dispInfo.current_h)
@@ -117,27 +168,38 @@ def store_pos_data(skeletons):
                     LIMB_LIST[position.value] = Limb(position.value,curstart[0], curstart[1])
                 start = next
 
-    if (isRecording):
+
         data = []
         # right side
-        if ((time.time()*1000) - lastImage > 200):
-            data.append(LIMB_LIST[JointId.HandRight].getX() - LIMB_LIST[JointId.Head].getX())
-            data.append(LIMB_LIST[JointId.HandRight].getY() - LIMB_LIST[JointId.Head].getY())
-            data.append(LIMB_LIST[JointId.ElbowRight].getX() - LIMB_LIST[JointId.Head].getX())
-            data.append(LIMB_LIST[JointId.ElbowRight].getY() - LIMB_LIST[JointId.Head].getY())
-            data.append(LIMB_LIST[JointId.ShoulderRight].getX() - LIMB_LIST[JointId.Head].getX())
-            data.append(LIMB_LIST[JointId.ShoulderRight].getY() - LIMB_LIST[JointId.Head].getY())
+        #print len(LIMB_LIST)
+        if (len(LIMB_LIST) > 5):
+            if ((time.time()*1000) - lastImage > 200):
+                data.append(LIMB_LIST[JointId.HandRight].getX() - LIMB_LIST[JointId.Head].getX())
+                data.append(LIMB_LIST[JointId.HandRight].getY() - LIMB_LIST[JointId.Head].getY())
+                data.append(LIMB_LIST[JointId.ElbowRight].getX() - LIMB_LIST[JointId.Head].getX())
+                data.append(LIMB_LIST[JointId.ElbowRight].getY() - LIMB_LIST[JointId.Head].getY())
+                data.append(LIMB_LIST[JointId.ShoulderRight].getX() - LIMB_LIST[JointId.Head].getX())
+                data.append(LIMB_LIST[JointId.ShoulderRight].getY() - LIMB_LIST[JointId.Head].getY())
 
-            # Left side
-            data.append(LIMB_LIST[JointId.HandLeft].getX() - LIMB_LIST[JointId.Head].getX())
-            data.append(LIMB_LIST[JointId.HandLeft].getY() - LIMB_LIST[JointId.Head].getY())
-            data.append(LIMB_LIST[JointId.ElbowLeft].getX() - LIMB_LIST[JointId.Head].getX())
-            data.append(LIMB_LIST[JointId.ElbowLeft].getY() - LIMB_LIST[JointId.Head].getY())
-            data.append(LIMB_LIST[JointId.ShoulderLeft].getX() - LIMB_LIST[JointId.Head].getX())
-            data.append(LIMB_LIST[JointId.ShoulderLeft].getY() - LIMB_LIST[JointId.Head].getY())
+                # Left side
+                data.append(LIMB_LIST[JointId.HandLeft].getX() - LIMB_LIST[JointId.Head].getX())
+                data.append(LIMB_LIST[JointId.HandLeft].getY() - LIMB_LIST[JointId.Head].getY())
+                data.append(LIMB_LIST[JointId.ElbowLeft].getX() - LIMB_LIST[JointId.Head].getX())
+                data.append(LIMB_LIST[JointId.ElbowLeft].getY() - LIMB_LIST[JointId.Head].getY())
+                data.append(LIMB_LIST[JointId.ShoulderLeft].getX() - LIMB_LIST[JointId.Head].getX())
+                data.append(LIMB_LIST[JointId.ShoulderLeft].getY() - LIMB_LIST[JointId.Head].getY())
 
-            RECORD_LIST.append(np.array(data))
-            lastImage = time.time() * 1000        
+                data = np.array(data).reshape(1, -1)
+                classification_result = knn.predict(data)[0]
+                res = knn.kneighbors_graph(data, mode="distance").toarray()
+                # print res.shape
+                dist = res.sum()/570
+                print dist
+                print gestures_classes[classification_result]
+                #print type(dist)
+                #sock.sendto(gesture_classes[classification_result] + "\n", (HOST, PORT))
+                current_gesture = gestures_classes[classification_result]
+                lastImage = time.time() * 1000      
 		#if (JointId.HandLeft in LIMB_LIST):
 			#print LIMB_LIST[JointId.HandRight].getX(), LIMB_LIST[JointId.HandRight].getY()
 
@@ -272,7 +334,16 @@ if __name__ == '__main__':
     # main game loop
     done = False
 
+    commandState = False
+    commandTimer = 200
+
     while not done:
+
+        if commandState:
+            commandTimer -= 1
+            if commandTimer == 0:
+                commandState = False
+
         e = pygame.event.wait()
         dispInfo = pygame.display.Info()
         if e.type == pygame.QUIT:
@@ -306,6 +377,9 @@ if __name__ == '__main__':
                 kinect.camera.elevation_angle = 2
             elif e.key == K_q:
                 exit(0)
+            elif e.key == K_e:
+                print "Send current gesture."
+                sock.sendto(current_gesture, (HOST, PORT))
             elif e.key == K_w:
                 isRecording = not isRecording
                 
